@@ -1,45 +1,14 @@
-#include "Arduino.h"
+#if ARDUINO >= 100
+	#include "Arduino.h"
+#else
+	#include "WProgram.h"
+#endif
+
+#include <Wire.h>
 #include "MCP4561.h"
- #include <Wire.h>
 
-/*
-ADDR is 0101 110x ( for the MCP 4561, 0101 aaax for ones with more than 1 adress pin)
- 
+/**************************************************************************/
 
- x is the R/!W bit set by the wire library
- 
- COMMAND char :  AAAA CC DD
- AAAA        : Adress in memory to do things
- CC     : What to do at AAAA ( R,W,Inc,Decr )
- 00      : Write
- 01      : increment (NV only)
- 10      : Decrement (NV only)
- 11      : Read
- DD  : D9 and D8 ( MSB of the value we are sending)
- 
- 
- Datachar     : DDDDDDDD ( 0-255 : 00-FF ), this gets used with D8 to give a full range of 00-257 : 0x00-0x100
- 8 bit data ( 8 LSB of the 10 bit data, 7 or 8 bit devices will only use the lower 7 or 8 bits )
- memory map
- Data memory is only 8 bits wide
- 
- ADDR    |FUNCTION    |CMDs
- 00      |VOL WP 0    |R,W,Inc,Decr 
- 01      |VOL WP 1    |R,W,Inc,Decr 
- 02      |NV WP 0     |R,W,HVInc,HVDecr 
- 03      |NV WP 1     |R,W,HVInc,HVDecr 
- 04      |VOL TCON    |R,W
- 05      |STATUS      |R
- 06 - 0E |EEPROM      |R,W
- 0F      |EEPROM      |R,W,HV_WPD,HV_RPD
- 
- 
- to send/recieve something:
- IIC addr + RW : 0101 110x
-	
- COMMAND       : AAAA CCDD
- DATA          : DDDD DDDD * only read and write commands have data 
- */
   //<<constructor>> 
   MCP4561::MCP4561(char dev_address) // define the device adress for this instance
   {
@@ -48,9 +17,9 @@ ADDR is 0101 110x ( for the MCP 4561, 0101 aaax for ones with more than 1 adress
   //<<destructor>>
   MCP4561::~MCP4561(){/*nothing to destruct*/};
   
-int MCP4561::write(char mem_addr, int setValue) // mem_addr is 00-0F, setvalue is 0-257
+uint8_t MCP4561::write(char mem_addr, uint16_t setValue) // mem_addr is 00-0F, setvalue is 0-257
 {
-//if you set the volatile output register, the same value ispu tto the non-volatile register
+//if you set the volatile output register, the same value is put to the non-volatile register
 	if(setValue <0)
 	{
 	setValue =0;
@@ -73,8 +42,14 @@ int MCP4561::write(char mem_addr, int setValue) // mem_addr is 00-0F, setvalue i
   Wire.write(data_byte);                  // sends potentiometer value byte DDDDDDDD  (D7-D0)
   Wire.endTransmission();                 // stop transmitting
   Wire.flush();
-  delay(10);							  // give unit time to apply the value to non volatile register
-  unsigned int set_reading = read(mem_addr);
+  if (mem_addr == WIPER_0_NON_VOLATILE || mem_addr == WIPER_1_NON_VOLATILE) {
+	  delay(10); // EEPROM takes 5 - 10 ms to write ( datasheet page 12 )
+  }
+  else {
+	  delay(2); // NV memory is faster
+  }
+  						  // give unit time to apply the value to non volatile register
+  uint8_t set_reading = read(mem_addr);
   if (set_reading == setValue)
   {
   return 1; // it has accepted our setting ( EEPROM reflects what we set it to )
@@ -82,7 +57,8 @@ int MCP4561::write(char mem_addr, int setValue) // mem_addr is 00-0F, setvalue i
   return 0;
 }
 
-unsigned int MCP4561::read(char mem_addr)// mem addr 0x00 - 0x0f ( 0-16 )
+
+uint16_t MCP4561::read(char mem_addr)// mem addr 0x00 - 0x0f ( 0-16 )
 {
 	if(mem_addr <0x00 || mem_addr >0x0F )
 	{
@@ -103,17 +79,17 @@ unsigned int MCP4561::read(char mem_addr)// mem addr 0x00 - 0x0f ( 0-16 )
   Wire.flush();
   }
   unsigned int returnValue =0;
-  returnValue = (((unsigned int)highbyte<<8)|lowbyte) & 0x01FF;
+  returnValue = (((uint16_t)highbyte<<8)|lowbyte) & 0x01FF;
   return returnValue;
 }
 
-int MCP4561::openCircuit()// disconnect teh internal connectiuon in the pot, creating an open circuit
+uint8_t MCP4561::openCircuit()// disconnect teh internal connectiuon in the pot, creating an open circuit
 {
 return write(4,0x0088);
 //returns 1 if the operation was succesful, 0 otherwise
 }
 
-int MCP4561::enableOutput()// disconnect the internal connectiuon in the pot, creating an open circuit
+uint8_t MCP4561::enableOutput()// disconnect the internal connectiuon in the pot, creating an open circuit
 {
 return write(4,0x00FF);
 //returns 1 if the operation was succesful, 0 otherwise

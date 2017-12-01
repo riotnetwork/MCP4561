@@ -100,9 +100,9 @@ void loop()
   int setOutput;
   setOutput = Serial.parseInt();
   int success;
-  success = digiPot.write(0,setOutput);             // this is the example method, all the rest is formatting, this method will return 1 if the write was succesful, 0 otherwise
+  success = digiPot.write(WIPER_0_VOLATILE,setOutput);             // this is the example method, all the rest is formatting, this method will return 1 if the write was succesful, 0 otherwise
   
-  success = digiPot.write(2,setOutput);
+  success = digiPot.write(WIPER_0_NON_VOLATILE,setOutput);
     if (success)             
    {
      Serial.print(" MCP4561 set to : ");
@@ -124,7 +124,7 @@ void loop()
    } 
     break;
     case 'e':
-    success digiPot.enableOutput();
+    success = digiPot.enableOutput();
     if (success)             
    {
      int output;
